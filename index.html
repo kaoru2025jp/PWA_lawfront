@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>条文同意システム</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: sans-serif;
+  padding: 20px;
+  line-height: 1.7;
+}
+.article {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+canvas {
+  border: 1px solid #000;
+  width: 100%;
+  max-width: 600px;
+  height: 200px;
+  touch-action: none;
+}
+button {
+  padding: 10px;
+  font-size: 16px;
+  margin-top: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>条文確認・同意</h2>
+
+<div id="articles"></div>
+
+<h3>署名</h3>
+<canvas id="sign" width="600" height="200"></canvas><br>
+<button onclick="clearSign()">署名をクリア</button>
+
+<br><br>
+<button onclick="sendConsent()">同意して送信</button>
+
+<script>
+/* ========= 設定 ========= */
+const GAS_URL =
+  "https://script.google.com/macros/s/【あなたのURL】/exec";
+
+/* ========= 条文（差し替え可能） ========= */
+const ARTICLES = [
+  { id: 1, text: "第1条 有価証券の流動性を引き上げるため 政府証券を活用することができる" },
+  { id: 2, text: "第2条 償却資産-オプション=積立資産+オプション。この方程式を利用して仲介者はオプションを調整することができる" },
+  { id: 3, text: "第3条 この方法で取引を行うものは 融資の斡旋を行うことはできない" },
+  { id: 4, text: "第4条 償却資産の典型的なものとして政府証券を当てることができる" },
+  { id: 5, text: "第5条 第4条の規定は 地方債権を 積立資産とすることを妨げない" }
+];
+
+/* ========= 条文描画 ========= */
+const container = document.getElementById("articles");
+ARTICLES.forEach(a => {
+  const div = document.createElement("div");
+  div.className = "article";
+  div.innerHTML = `
+    <label>
+      <input type="checkbox" value="${a.id}">
+      ${a.text}
+    </label>
+  `;
+  container.appendChild(div);
+});
+
+/* ========= 同意送信 ========= */
+function sendConsent() {
+  const checked = [...document.querySelectorAll("input[type=checkbox]:checked")]
+    .map(c => c.value)
+    .join(",");
+
+  if (!checked) {
+    alert("条文を選択してください");
+    return;
+  }
+
+  const callbackName = "cb_" + Date.now();
+  const script = document.createElement("script");
+
+  window[callbackName] = function(res) {
+    delete window[callbackName];
+    document.body.removeChild(script);
+    if (res.status === "ok") {
+      alert("同意を記録しました");
+    }
+  };
+
+  script.src =
+    GAS_URL +
+    "?number=" + encodeURIComponent(checked) +
+    "&callback=" + callbackName;
+
+  document.body.appendChild(script);
+}
+
+/* ========= 署名ボード ========= */
+const canvas = document.getElementById("sign");
+const ctx = canvas.getContext("2d");
+let drawing = false;
+
+function pos(e) {
+  const r = canvas.getBoundingClientRect();
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+  return { x, y };
+}
+
+canvas.addEventListener("mousedown", start);
+canvas.addEventListener("touchstart", start);
+canvas.addEventListener("mousemove", draw);
+canvas.addEventListener("touchmove", draw);
+canvas.addEventListener("mouseup", end);
+canvas.addEventListener("mouseleave", end);
+canvas.addEventListener("touchend", end);
+
+function start(e) {
+  e.preventDefault();
+  drawing = true;
+  const p = pos(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+}
+function draw(e) {
+  if (!drawing) return;
+  e.preventDefault();
+  const p = pos(e);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+}
+function end() {
+  drawing = false;
+}
+function clearSign() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+</script>
+
+</body>
+</html>
